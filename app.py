@@ -22,7 +22,7 @@ st.set_page_config(
 
 # URL dos dados e caminho local
 DATA_URL = "https://terrabrasilis.dpi.inpe.br/download/dataset/legal-amz-prodes/vector/yearly_deforestation.zip"
-LOCAL_ZIP = "yearly_deforestation.zip"
+LOCAL_PARQUET = "yearly_deforestation.parquet"
 
 @st.cache_data
 def load_data():
@@ -33,13 +33,13 @@ def load_data():
     """
     try:
         # Verifica se o arquivo ZIP existe localmente
-        if os.path.exists(LOCAL_ZIP):
-            data_source = LOCAL_ZIP
+        gdf = None
+        if os.path.exists(LOCAL_PARQUET):
+            gdf = gpd.read_parquet(LOCAL_PARQUET)
         else:
-            data_source = DATA_URL
+            gdf = gpd.read_file(DATA_URL)
         
-        # Carrega o Shapefile diretamente do ZIP (local ou URL)
-        gdf = gpd.read_file(data_source)
+        
         
         # Mapeia as colunas do PRODES para nomes padronizados
         column_mapping = {
