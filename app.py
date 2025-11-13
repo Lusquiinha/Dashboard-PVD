@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # URL dos dados e caminho local
-DATA_URL = "https://terrabrasilis.dpi.inpe.br/download/dataset/legal-amz-prodes/vector/yearly_deforestation.zip"
+DATA_URL = "https://drive.google.com/uc?id=11lAR2Ny1Q5d4jVnjq87mNft93w86mCBv"
 LOCAL_ZIP = "yearly_deforestation.zip"
 
 @st.cache_data
