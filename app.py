@@ -22,7 +22,7 @@ st.set_page_config(
 
 # URL dos dados e caminho local
 DATA_URL = "https://terrabrasilis.dpi.inpe.br/download/dataset/legal-amz-prodes/vector/yearly_deforestation.zip"
-LOCAL_PARQUET = "yearly_deforestation.parquet"
+LOCAL_PARQUET = "yearly_deforestation_light.parquet"
 
 @st.cache_data
 def load_data():
