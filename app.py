@@ -178,7 +178,7 @@ def create_choropleth_map(gdf_filtered):
         layers=[layer],
         initial_view_state=view_state,
         tooltip=tooltip,
-        map_style='mapbox://styles/mapbox/dark-v10'  # Mapa escuro para melhor contraste 3D
+        map_style='road'  # Estilo de mapa que não requer API key
     )
     
     return deck
