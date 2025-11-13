@@ -10,6 +10,7 @@ import pandas as pd
 import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
+import pydeck as pdk
 import os
 from pathlib import Path
 
@@ -97,56 +98,90 @@ def load_data():
 
 def create_choropleth_map(gdf_filtered):
     """
-    Cria um mapa coroplético interativo usando Plotly.
+    Cria um mapa 3D interativo usando PyDeck com extrusão.
     """
-    # Limita o número de polígonos para melhor performance (máximo 5000)
-    if len(gdf_filtered) > 5000:
-        st.warning(f"⚠️ Exibindo amostra de 5000 Áreas de {len(gdf_filtered):,} totais para melhor performance.")
-        gdf_sample = gdf_filtered.nlargest(5000, 'area_km2')
+    # Limita o número de polígonos para melhor performance (máximo 10000)
+    if len(gdf_filtered) > 10000:
+        st.warning(f"⚠️ Exibindo amostra de 10000 Áreas de {len(gdf_filtered):,} totais para melhor performance.")
+        gdf_sample = gdf_filtered.nlargest(10000, 'area_km2')
     else:
         gdf_sample = gdf_filtered
     
-    # Converte GeoDataFrame para GeoJSON
-    gdf_json = gdf_sample.__geo_interface__
+    # Converte para GeoJSON
+    gdf_sample = gdf_sample.copy()
+    
+    # Normaliza os valores de área para cores (0-255) e altura
+    area_min = gdf_sample['area_km2'].min()
+    area_max = gdf_sample['area_km2'].max()
+    
+    if area_max > area_min:
+        # Normaliza de 0 a 255 para cores
+        gdf_sample['color_intensity'] = ((gdf_sample['area_km2'] - area_min) / (area_max - area_min) * 255).astype(int)
+        # Normaliza a altura de extrusão (escala logarítmica para melhor visualização)
+        gdf_sample['elevation'] = ((gdf_sample['area_km2'] - area_min) / (area_max - area_min) * 50000).astype(int) + 5000
+    else:
+        gdf_sample['color_intensity'] = 128
+        gdf_sample['elevation'] = 10000
+    
+    # Cria cores RGB para cada polígono (gradiente de vermelho para amarelo)
+    gdf_sample['color'] = gdf_sample['color_intensity'].apply(
+        lambda x: [255, int(255 - x * 0.5), 0, 200]  # Vermelho para laranja/amarelo
+    )
     
     # Calcula o centro do mapa
     center_lat = gdf_sample.geometry.centroid.y.mean()
     center_lon = gdf_sample.geometry.centroid.x.mean()
     
-    # Prepara dados para hover
-    hover_data_dict = {
-        'area_km2': ':.2f'
+    # Cria a camada de polígonos 3D
+    layer = pdk.Layer(
+        'GeoJsonLayer',
+        gdf_sample,
+        opacity=0.8,
+        stroked=True,
+        filled=True,
+        extruded=True,  # Ativa a extrusão 3D
+        wireframe=True,
+        get_fill_color='color',
+        get_line_color=[255, 255, 255, 150],
+        get_line_width=20,  # Aumenta a espessura das linhas para polígonos pequenos serem visíveis
+        line_width_min_pixels=1,
+        get_elevation='elevation',  # Define a altura baseada na área
+        elevation_scale=1,
+        pickable=True,
+        auto_highlight=True
+    )
+    
+    # Configuração da visualização 3D
+    view_state = pdk.ViewState(
+        latitude=center_lat,
+        longitude=center_lon,
+        zoom=5,
+        pitch=45,  # Ângulo de visão 3D
+        bearing=0
+    )
+    
+    # Tooltip para exibir informações ao passar o mouse
+    tooltip = {
+        "html": "<b>Área:</b> {area_km2:.2f} km²<br/>"
+                "<b>Ano:</b> {ano}<br/>"
+                + ("<b>Estado:</b> {uf}<br/>" if 'uf' in gdf_sample.columns else ""),
+        "style": {
+            "backgroundColor": "steelblue",
+            "color": "white",
+            "fontSize": "14px",
+            "padding": "10px"
+        }
     }
     
-    if 'ano' in gdf_sample.columns:
-        hover_data_dict['ano'] = True
-    if 'uf' in gdf_sample.columns:
-        hover_data_dict['uf'] = True
-    if 'satelite' in gdf_sample.columns:
-        hover_data_dict['satelite'] = True
-    
-    # Cria o mapa coroplético
-    fig = px.choropleth_mapbox(
-        gdf_sample,
-        geojson=gdf_json,
-        locations=gdf_sample.index,
-        color='area_km2',
-        color_continuous_scale='Reds',
-        mapbox_style='carto-positron',
-        zoom=4,
-        center={'lat': center_lat, 'lon': center_lon},
-        opacity=0.7,
-        labels={'area_km2': 'Área (km²)'},
-        hover_data=hover_data_dict
+    # Cria o deck
+    deck = pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        tooltip=tooltip,
+        map_style='mapbox://styles/mapbox/dark-v10'  # Mapa escuro para melhor contraste 3D
     )
     
-    fig.update_layout(
-        title='Mapa de Desmatamento - PRODES',
-        height=600,
-        margin={"r": 0, "t": 30, "l": 0, "b": 0}
-    )
-    
-    return fig
+    return deck
 
 
 def main():
@@ -271,7 +306,7 @@ def main():
     
     try:
         fig_mapa = create_choropleth_map(gdf_filtered)
-        st.plotly_chart(fig_mapa, use_container_width=True)
+        st.pydeck_chart(fig_mapa, use_container_width=True)
     except Exception as e:
         st.error(f"❌ Erro ao criar mapa: {str(e)}")
         st.info("💡 Dica: O mapa pode ter problemas com muitos polígonos. Tente filtrar por ano específico.")
